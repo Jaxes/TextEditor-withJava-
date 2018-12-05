@@ -2,12 +2,12 @@ package TextEdidtor;
 
 import java.awt.*;
 import java.awt.event.*;
-//import java.awt.Window.Type;
 import java.util.regex.*;
 import java.io.*;
-
 import javax.swing.*;
 import javax.swing.event.*;
+import DialogDesign.*;
+
 import javax.swing.border.EmptyBorder;
 
 public class MainFrame extends JFrame {
@@ -26,34 +26,39 @@ public class MainFrame extends JFrame {
 	 * 主窗体
 	 */
 	private JPanel contentPane;
-	private JTextPane textPane;
 	private JScrollPane scrollPane;
 	private String currentFileName="新建文本文档.txt";
 	private String currentFilePath;
 	
+	public JTextPane textPane;
+	
 	/*
 	 * 查找对话框
 	 */
-	private JDialog searchDialog;
-	private JButton button;
-	private JButton button_1;
-	private JTextField textField;
-	private JCheckBox chckbxc;
+	private SearchDialog searchDialog;
 	
 	/*
 	 * 字体设置对话框
 	 */
-	private JDialog FontDialog;
-	private JPanel fontDialogPanel;
-	private Color currentColor;
-	private String currentFont;
-	private int currentStyle;
-	private int currentStyleIndex=0;
-	private int currentFontSize;
+	private FontDialog fontDialog;
 	
-	private static boolean isChange=false;
-	private static boolean isNothing=false;
-	private static int key=0;
+	public Color currentColor;
+	public String currentFont;
+	public int currentStyle;
+	public int currentStyleIndex=0;
+	public int currentFontSize;
+	
+	/*
+	 * 替换对话框
+	 */
+	private ReplaceDialog replaceDialog;
+	
+	/*
+	 * 其他
+	 */
+	private boolean isChange=false;
+	public boolean isReplace=false;
+	public int key=0;
 	
 	/*
 	 * 构造方法
@@ -95,7 +100,7 @@ public class MainFrame extends JFrame {
 		});
 		
 		/*
-		 * 初始化
+		 * 窗体初始化
 		 */
 		initialize();
 	}
@@ -180,7 +185,7 @@ public class MainFrame extends JFrame {
 		menuItem_3.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				key=0;
-				createSearchDialog();
+				searchDialog=new SearchDialog();
 				searchDialog.setVisible(true);
 			}
 		});
@@ -191,7 +196,9 @@ public class MainFrame extends JFrame {
 		JMenuItem menuItem_4 = new JMenuItem("替换");
 		menuItem_4.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				replaceText();
+				isReplace=true;
+				replaceDialog=new ReplaceDialog();
+				replaceDialog.setVisible(true);
 			}
 		});
 		menuItem_4.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_H, InputEvent.CTRL_DOWN_MASK));
@@ -204,9 +211,17 @@ public class MainFrame extends JFrame {
 		JMenuItem menuItem_5 = new JMenuItem("转成大写");
 		menuItem_5.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				String text=textPane.getText();
-				text=text.toUpperCase();
-				textPane.setText(text);
+				if(textPane.getSelectionStart()!=textPane.getSelectionEnd()) {
+					textPane.replaceSelection(textPane.getSelectedText().toUpperCase());
+				}
+				else {
+					int confirmMessege=JOptionPane.showConfirmDialog(contentPane, 
+							"你没有选择任何文本，默认转换所有小写字母为大写，你确定要这样做吗？","确认",JOptionPane.YES_NO_OPTION);
+					if(confirmMessege==JOptionPane.YES_OPTION) {
+						String text=textPane.getText().toUpperCase();
+						textPane.setText(text);
+					}
+				}
 			}
 		});
 		menuItem_5.setFont(new Font("微软雅黑", Font.PLAIN, 12));
@@ -218,9 +233,17 @@ public class MainFrame extends JFrame {
 		JMenuItem menuItem_6 = new JMenuItem("转成小写");
 		menuItem_6.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				String text=textPane.getText();
-				text=text.toLowerCase();
-				textPane.setText(text);
+				if(textPane.getSelectionStart()!=textPane.getSelectionEnd()) {
+					textPane.replaceSelection(textPane.getSelectedText().toLowerCase());
+				}
+				else {
+					int confirmMessege=JOptionPane.showConfirmDialog(contentPane, 
+							"你没有选择任何文本，默认转换所有大写字母为小写，你确定要这样做吗？","确认",JOptionPane.YES_NO_OPTION);
+					if(confirmMessege==JOptionPane.YES_OPTION) {
+						String text=textPane.getText().toLowerCase();
+						textPane.setText(text);
+					}
+				}
 			}
 		});
 		menuItem_6.setFont(new Font("微软雅黑", Font.PLAIN, 12));
@@ -237,8 +260,8 @@ public class MainFrame extends JFrame {
 		JMenuItem menuItem_7 = new JMenuItem("字体设置");
 		menuItem_7.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				createFontDialog();
-				FontDialog.setVisible(true);
+				fontDialog=new FontDialog();
+				fontDialog.setVisible(true);
 			}
 		});
 		menuItem_7.setFont(new Font("微软雅黑", Font.PLAIN, 12));
@@ -404,17 +427,6 @@ public class MainFrame extends JFrame {
 		}
 		else {
 			FileDialog saveDialog=new FileDialog(this,"保存文件",FileDialog.SAVE);
-			/*FilenameFilter filter=new FilenameFilter() {
-				public boolean accept(File dir,String name) {
-					if(name.endsWith("txt")) {
-						return true;
-					}
-					else {
-						return false;
-					}
-				}
-			};
-			saveDialog.setFilenameFilter(filter);*/
 			saveDialog.setFile("新建文本文档");
 			saveDialog.setVisible(true);
 			String path=saveDialog.getDirectory();
@@ -444,17 +456,6 @@ public class MainFrame extends JFrame {
 			}
 		}
 		FileDialog openDialog=new FileDialog(this,"打开文件",FileDialog.LOAD);
-		/*FilenameFilter filter=new FilenameFilter() {
-			public boolean accept(File dir,String name) {
-				if(name.endsWith("txt")) {
-					return true;
-				}
-				else {
-					return false;
-				}
-			}
-		};
-		openDialog.setFilenameFilter(filter);*/
 		openDialog.setVisible(true);
 		String path=openDialog.getDirectory();
 		String name=openDialog.getFile();
@@ -486,31 +487,30 @@ public class MainFrame extends JFrame {
 	public void findText(String regex) {
 		String originRegex=regex;
 		String text=textPane.getText();
-		if(!chckbxc.isSelected()) {
-			regex=regex.toLowerCase();
-			text=text.toLowerCase();
+		if(isReplace) {
+			if(!replaceDialog.chckbxc.isSelected()) {
+				regex=regex.toLowerCase();
+				text=text.toLowerCase();
+			}
+		}
+		else {
+			if(!searchDialog.chckbxc.isSelected()) {
+				regex=regex.toLowerCase();
+				text=text.toLowerCase();
+			}
 		}
 		Pattern p=Pattern.compile(regex);
 		Matcher m=p.matcher(text);
 		if(m.find()) {
-			String[] strArr=p.split(text);
-			if(key>strArr.length) {
-				key=1;
-			}
-			int pos=0;
-			for(int n=0;n<key;n++) {
-				if(n!=0) {
-					pos+=regex.length();
+			int tempKey=key;
+			for(int i=0;i<text.length()-regex.length()+1;i=(i+1)%(text.length()-regex.length()+1)) {
+				String temp=text.substring(i, i+regex.length());
+				if(temp.equals(regex)) {
+					if(--tempKey==0) {
+						textPane.select(i, i+regex.length());
+						break;
+					}
 				}
-				if(!strArr[n].isEmpty()) {
-					pos+=strArr[n].length();
-				}
-			}
-			if(pos<text.length()) {
-				textPane.select(pos, pos+regex.length());
-			}
-			else {
-				JOptionPane.showMessageDialog(contentPane, "找不到下一个"+originRegex, "查找失败", JOptionPane.INFORMATION_MESSAGE);
 			}
 		}
 		else {
@@ -519,17 +519,20 @@ public class MainFrame extends JFrame {
 	}
 	
 	/*
-	 * 替换文本
+	 * 替换全部匹配的文本
 	 */
-	private void replaceText() {
-		String regex=JOptionPane.showInputDialog(contentPane,"请输入要替换掉的内容：", "替换", JOptionPane.PLAIN_MESSAGE);
-		if(regex!=null) {
-			String str=JOptionPane.showInputDialog(contentPane,"请输入要替换成的内容：", "替换", JOptionPane.PLAIN_MESSAGE);
-			if(str!=null) {
-				String text=this.textPane.getText();
-				text=text.replaceAll(regex, str);
-				this.textPane.setText(text);
-			}
+	public void replaceAllText(String regex,String str) {
+		String text=this.textPane.getText();
+		text=text.replaceAll(regex, str);
+		this.textPane.setText(text);
+	}
+	
+	/*
+	 * 替换当前选择的文本 
+	 */
+	public void replaceSelectingText(String str) {
+		if(this.textPane.getSelectionStart()!=this.textPane.getSelectionEnd()) {
+			this.textPane.replaceSelection(str);
 		}
 	}
 	
@@ -559,168 +562,5 @@ public class MainFrame extends JFrame {
 		else {
 			return false;
 		}
-	}
-	
-	/*
-	 * 创建查找对话框
-	 */
-	private void createSearchDialog() {
-		searchDialog=new JDialog(this);
-		searchDialog.setTitle("查找");
-		searchDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-		searchDialog.setBounds(100, 100, 523, 129);
-		searchDialog.getContentPane().setLayout(new BorderLayout());
-		JPanel dialogPanel= new JPanel();
-		dialogPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
-		searchDialog.getContentPane().add(dialogPanel, BorderLayout.CENTER);
-		dialogPanel.setLayout(null);
-		
-		textField = new JTextField();
-		textField.addCaretListener(new CaretListener() {
-			public void caretUpdate(CaretEvent e) {
-				if(textField.getText().equals(new String())) {
-					button.setEnabled(false);
-				}
-				else {
-					button.setEnabled(true);
-				}
-			}
-		});
-		textField.setFont(new Font("微软雅黑", Font.PLAIN, 12));
-		textField.setBounds(79, 10, 301, 22);
-		dialogPanel.add(textField);
-		textField.setColumns(10);
-		
-		JLabel label = new JLabel("查找内容：");
-		label.setFont(new Font("微软雅黑", Font.PLAIN, 13));
-		label.setBounds(10, 10, 72, 22);
-		dialogPanel.add(label);
-		
-		button = new JButton("查找下一个(F)");
-		button.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				key++;
-				MainFrame.frame.findText(textField.getText());
-			}
-		});
-		button.setEnabled(false);
-		button.setFont(new Font("微软雅黑", Font.PLAIN, 13));
-		button.setBounds(390, 10, 116, 22);
-		dialogPanel.add(button);
-		
-		button_1 = new JButton("取消");
-		button_1.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				searchDialog.dispose();
-			}
-		});
-		button_1.setFont(new Font("微软雅黑", Font.PLAIN, 13));
-		button_1.setBounds(390, 42, 116, 22);
-		dialogPanel.add(button_1);
-		
-		chckbxc = new JCheckBox("区分大小写(C)");
-		chckbxc.setFont(new Font("微软雅黑", Font.PLAIN, 13));
-		chckbxc.setBounds(89, 38, 116, 22);
-		dialogPanel.add(chckbxc);
-		
-		searchDialog.setResizable(false);
-	}
-	
-	/*
-	 * 创建字体设置对话框
-	 */
-	private void createFontDialog() {
-		FontDialog=new JDialog(this);
-		FontDialog.setBounds(100, 100, 480, 147);
-		FontDialog.getContentPane().setLayout(new BorderLayout());
-		
-		fontDialogPanel=new JPanel();
-		fontDialogPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
-		FontDialog.getContentPane().add(fontDialogPanel, BorderLayout.CENTER);
-		fontDialogPanel.setLayout(null);
-		
-		JLayeredPane layeredPane = new JLayeredPane();
-		layeredPane.setBounds(29, 20, 415, 43);
-		fontDialogPanel.add(layeredPane);
-		
-		JLabel lbly = new JLabel("字形(Y)：");
-		lbly.setBounds(174, 0, 58, 15);
-		layeredPane.add(lbly);
-		lbly.setFont(new Font("微软雅黑", Font.PLAIN, 13));
-		
-		JLabel lbls = new JLabel("大小(S)：");
-		lbls.setBounds(326, 0, 58, 15);
-		layeredPane.add(lbls);
-		lbls.setFont(new Font("微软雅黑", Font.PLAIN, 13));
-		
-		JComboBox<String> comboBox = new JComboBox<String>();
-		comboBox.setBounds(0, 20, 150, 23);
-		layeredPane.add(comboBox);
-		comboBox.setFont(new Font("微软雅黑", Font.PLAIN, 12));
-		GraphicsEnvironment ge=GraphicsEnvironment.getLocalGraphicsEnvironment();
-		String[] font=ge.getAvailableFontFamilyNames();
-		comboBox.setModel(new DefaultComboBoxModel<String>(font));
-		comboBox.setSelectedItem(currentFont);
-		
-		JComboBox<String> comboBox_1 = new JComboBox<String>();
-		comboBox_1.setBounds(174, 20, 130, 23);
-		layeredPane.add(comboBox_1);
-		comboBox_1.setFont(new Font("微软雅黑", Font.PLAIN, 12));
-		comboBox_1.setModel(new DefaultComboBoxModel<String>(new String[] {"常规", "倾斜", "加粗","倾斜加粗"}));
-		comboBox_1.setSelectedIndex(currentStyleIndex);
-		
-		JComboBox<Integer> comboBox_2 = new JComboBox<Integer>();
-		comboBox_2.setBounds(328, 20, 87, 23);
-		layeredPane.add(comboBox_2);
-		comboBox_2.setFont(new Font("微软雅黑", Font.PLAIN, 12));
-		Integer[] FontSize=new Integer[95];
-		for(int i=5;i<100;i++) {
-			FontSize[i-5]=i;
-		}
-		comboBox_2.setModel(new DefaultComboBoxModel<Integer>(FontSize));
-		comboBox_2.setSelectedItem(currentFontSize);
-		
-		JLabel lblf = new JLabel("字体(F)：");
-		lblf.setBounds(0, 0, 58, 15);
-		layeredPane.add(lblf);
-		lblf.setFont(new Font("微软雅黑", Font.PLAIN, 13));
-		
-		JButton button = new JButton("字体颜色");
-		button.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				currentColor=JColorChooser.showDialog(fontDialogPanel, "字体颜色", currentColor);
-			}
-		});
-		button.setFont(new Font("微软雅黑", Font.PLAIN, 13));
-		button.setBounds(29, 73, 150, 27);
-		fontDialogPanel.add(button);
-		
-		JButton button_1 = new JButton("确定");
-		button_1.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				textPane.setForeground(currentColor);
-				currentFont=comboBox.getSelectedItem().toString();
-				String style=comboBox_1.getSelectedItem().toString();
-				currentStyleIndex=comboBox_1.getSelectedIndex();
-				if(style.equals("常规")) {
-					currentStyle=Font.PLAIN;
-				}
-				else if(style.equals("倾斜")) {
-					currentStyle=Font.ITALIC;
-				}
-				else if(style.equals("加粗")) {
-					currentStyle=Font.BOLD;
-				}
-				else if(style.equals("倾斜加粗")) {
-					currentStyle=Font.BOLD|Font.ITALIC;
-				}
-				currentFontSize=(int)comboBox_2.getSelectedItem();
-				textPane.setFont(new Font(currentFont,currentStyle,currentFontSize));
-				FontDialog.dispose();
-			}
-		});
-		button_1.setFont(new Font("微软雅黑", Font.PLAIN, 13));
-		button_1.setBounds(338, 73, 106, 29);
-		fontDialogPanel.add(button_1);
 	}
 } 
